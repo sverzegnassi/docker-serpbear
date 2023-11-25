@@ -1,0 +1,39 @@
+name: Build image and publish on Docker Hub
+
+on:
+  push:
+    branches:
+      - "main"
+  schedule:
+    - cron: '0 2 * * *'
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Ensure curl and jq are installed
+        run: |
+          sudo apt-get install -y curl jq
+      - name: Get tag name from repository
+        run: |
+          tagname=$(curl -s https://api.github.com/repos/towfiqi/serpbear/tags | jq -r '.[0].name')
+          echo out=$tagname >> $GITHUB_OUTPUT
+        id: run_tagname
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: sverzegnassi/serpbear:latest, sverzegnassi/serpbear:${{ steps.run_tagname.outputs.out }}
